@@ -1,7 +1,8 @@
 import "./style.css";
 
-const APP_NAME = "Hello!";
+const APP_NAME = "Paint IO!";
 const app = document.querySelector<HTMLDivElement>("#app")!;
+addEventListener("mousemove", (event) => {});
 
 document.title = APP_NAME;
 app.innerHTML = `
