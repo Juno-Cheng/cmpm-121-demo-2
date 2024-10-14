@@ -8,13 +8,19 @@ app.innerHTML = `
   <h1>${APP_NAME}</h1>
   <canvas id="canvas" width="256" height="256"></canvas>
   <button id="clearBtn">Clear</button>
+  <button id="undoBtn">Undo</button>
+  <button id="redoBtn">Redo</button>
 `;
 
 const canvas = document.querySelector<HTMLCanvasElement>("#canvas")!;
 const ctx = canvas.getContext("2d")!;
 const clearBtn = document.querySelector<HTMLButtonElement>("#clearBtn")!;
+const undoBtn = document.querySelector<HTMLButtonElement>("#undoBtn")!;
+const redoBtn = document.querySelector<HTMLButtonElement>("#redoBtn")!;
 const paths: Array<Array<{ x: number; y: number }>> = [];
 let currentPath: Array<{ x: number; y: number }> = [];
+const redoStack: Array<Array<{ x: number; y: number }>> = [];
+
 
 const cursor = { active: false, x: 0, y: 0 };
 
@@ -47,6 +53,27 @@ clearBtn.addEventListener("click", () => {
   paths.length = 0; 
   dispatchDrawingChanged();
 });
+
+undoBtn.addEventListener("click", () => {
+    if (paths.length > 0) {
+        const lastPath = paths.pop();
+        if (lastPath) {
+          redoStack.push(lastPath); 
+          dispatchDrawingChanged(); 
+        }
+      }
+});
+
+redoBtn.addEventListener("click", () => {
+    if (redoStack.length > 0) {
+        const pathToRedo = redoStack.pop();
+        if (pathToRedo) {
+          paths.push(pathToRedo); 
+          dispatchDrawingChanged();
+        }
+      }
+});
+  
 
 canvas.addEventListener("mousedown", (e: MouseEvent) => {
   cursor.active = true;
