@@ -17,26 +17,57 @@ const ctx = canvas.getContext("2d")!;
 const clearBtn = document.querySelector<HTMLButtonElement>("#clearBtn")!;
 const undoBtn = document.querySelector<HTMLButtonElement>("#undoBtn")!;
 const redoBtn = document.querySelector<HTMLButtonElement>("#redoBtn")!;
-const paths: Array<Array<{ x: number; y: number }>> = [];
-let currentPath: Array<{ x: number; y: number }> = [];
-const redoStack: Array<Array<{ x: number; y: number }>> = [];
-
-
 const cursor = { active: false, x: 0, y: 0 };
 
-function redraw() {
+
+/* Class with a display method:
+
+Rather than having your display list and undo/redo stacks hold geometry information (arrays of x/y pairs), 
+have it them objects with objects that have a display(ctx) method that accepts a context parameter 
+(the same context from canvas.getContext("2d")).
+
+Implement a class that will be used to represent marker lines. Each command class might have a constructor 
+that takes an initial marker position. It might have a method called drag(x,y) that accepts an additional marker
+position used to incrementally grow the line as the user drags their mouse cursor.
+
+*/
+class MarkerLine {
+    private points: { x: number; y: number }[] = [];
+  
+    constructor(initialX: number, initialY: number) {
+      this.points.push({ x: initialX, y: initialY });
+    }
+  
+    // Add a new point as the user drags the mouse
+    drag(x: number, y: number) {
+      this.points.push({ x, y });
+    }
+  
+    // Display the line on the canvas using the context
+    display(ctx: CanvasRenderingContext2D) {
+      if (this.points.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+  
+        for (let i = 1; i < this.points.length; i++) {
+          ctx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+  
+// Update variables to not use coordinates
+const paths: MarkerLine[] = [];
+const redoStack: MarkerLine[] = [];
+let currentLine: MarkerLine | null = null;
+
+// Updating all Functions
+function redraw() { //Redraw just calls drag
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   for (const path of paths) {
-    if (path.length > 0) {
-      ctx.beginPath();
-      ctx.moveTo(path[0].x, path[0].y);
-
-      for (let i = 1; i < path.length; i++) {
-        ctx.lineTo(path[i].x, path[i].y);
-      }
-      ctx.stroke();
-    }
+    path.display(ctx); // Call on a function that has the details of storoke
   }
 }
 
@@ -50,8 +81,9 @@ canvas.addEventListener("drawing-changed", () => {
 });
 
 clearBtn.addEventListener("click", () => {
-  paths.length = 0; 
-  dispatchDrawingChanged();
+    paths.length = 0;
+    redoStack.length = 0;
+    dispatchDrawingChanged();
 });
 
 undoBtn.addEventListener("click", () => {
@@ -76,30 +108,34 @@ redoBtn.addEventListener("click", () => {
   
 
 canvas.addEventListener("mousedown", (e: MouseEvent) => {
-  cursor.active = true;
-  cursor.x = e.offsetX;
-  cursor.y = e.offsetY;
-
-  currentPath = [{ x: cursor.x, y: cursor.y }];
-  paths.push(currentPath);
-  dispatchDrawingChanged(); 
+    cursor.active = true;
+    cursor.x = e.offsetX;
+    cursor.y = e.offsetY;
+  
+    // Create a new MarkerLine and add it to paths
+    currentLine = new MarkerLine(cursor.x, cursor.y);
+    paths.push(currentLine);
+    redoStack.length = 0; // Clear redo stack on new drawing action
+    dispatchDrawingChanged(); 
 });
 
 canvas.addEventListener("mousemove", (e: MouseEvent) => {
-  if (cursor.active) {
+  if (cursor.active && currentLine) {
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
 
-    currentPath.push({ x: cursor.x, y: cursor.y });
-    dispatchDrawingChanged(); 
+    // Add new points to the current line as the user drags the mouse
+    currentLine.drag(cursor.x, cursor.y);
+    dispatchDrawingChanged(); // Trigger a redraw after each new point
   }
 });
 
 canvas.addEventListener("mouseup", () => {
-  cursor.active = false;
-  currentPath = [];
+    cursor.active = false;
+    currentLine = null;
 });
 
 canvas.addEventListener("mouseleave", () => {
   cursor.active = false;
+  currentLine = null;
 });
