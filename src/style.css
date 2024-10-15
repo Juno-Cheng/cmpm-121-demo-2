@@ -101,3 +101,15 @@ button:focus-visible {
   display: block;
   margin: 20px auto; /* Center the canvas */
 }
+
+/* Added Step 6 - Selected Tool*/
+.selectedTool {
+  background-color: #726d6d;
+  border: 2px solid black;
+}
+
+button {
+  margin: 5px;
+  padding: 10px;
+  cursor: pointer;
+}
