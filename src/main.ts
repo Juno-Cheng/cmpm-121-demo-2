@@ -7,11 +7,21 @@ document.title = APP_NAME; // Added buttons
 app.innerHTML = `
   <h1>${APP_NAME}</h1>
   <canvas id="canvas" width="256" height="256"></canvas>
-  <button id="clearBtn">Clear</button>
-  <button id="undoBtn">Undo</button>
-  <button id="redoBtn">Redo</button>
-  <button id="thinBtn">Thin</button> 
-  <button id="thickBtn">Thick</button>
+  <!-- First row for tool buttons -->
+  <div id="toolButtons">
+    <button id="clearBtn">Clear</button>
+    <button id="undoBtn">Undo</button>
+    <button id="redoBtn">Redo</button>
+    <button id="thinBtn">Thin</button>
+    <button id="thickBtn">Thick</button>
+  </div>
+
+  <!-- Second row for sticker buttons --> 
+  <div id="stickerButtons">
+    <button id="rocketBtn">🚀 Rocket</button> 
+    <button id="sunglassesBtn">😎 Sunglasses</button>
+    <button id="unicornBtn">🦄 Unicorn</button>
+  </div>
 `;
 
 const canvas = document.querySelector<HTMLCanvasElement>("#canvas")!;
@@ -21,19 +31,21 @@ const undoBtn = document.querySelector<HTMLButtonElement>("#undoBtn")!;
 const redoBtn = document.querySelector<HTMLButtonElement>("#redoBtn")!;
 const thinBtn = document.querySelector<HTMLButtonElement>("#thinBtn")!; 
 const thickBtn = document.querySelector<HTMLButtonElement>("#thickBtn")!;
-
+const rocketBtn = document.querySelector<HTMLButtonElement>("#rocketBtn")!; // New Buttons
+const sunglassesBtn = document.querySelector<HTMLButtonElement>("#sunglassesBtn")!;
+const unicornBtn = document.querySelector<HTMLButtonElement>("#unicornBtn")!; 
 const cursor = { active: false, x: 0, y: 0 };
 
 // Marker styles
 let currentThickness = 2; 
-thinBtn.classList.add("selectedTool"); 
-
-// CSS to highlight the selected button - Remove All then Add to Selected
+thinBtn.classList.add("selectedTool"); // Default selected tool - Add CSS
 function setSelectedTool(toolBtn: HTMLButtonElement) {
   thinBtn.classList.remove("selectedTool");
   thickBtn.classList.remove("selectedTool");
   toolBtn.classList.add("selectedTool");
 }
+
+// ====Classes====
 
 class ToolPreview{
     private x: number;
@@ -63,7 +75,7 @@ class ToolPreview{
 
 }
 
-class MarkerLine { // Command Pattern for Drawing
+class MarkerLine { 
     private points: { x: number; y: number }[] = [];
     private thickness: number;
   
@@ -88,25 +100,68 @@ class MarkerLine { // Command Pattern for Drawing
         ctx.stroke();
       }
     }
-  }
-  
-const paths: MarkerLine[] = [];
-const redoStack: MarkerLine[] = [];
-let currentLine: MarkerLine | null = null;
-let toolPreview: ToolPreview | null = null; // Tool preview object
-
-function redraw() { 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  for (const path of paths) {
-    path.display(ctx); 
-  }
-
-  if (toolPreview && !cursor.active) {
-    toolPreview.draw(ctx);
-  }
 }
 
+class Sticker {
+    public x: number;
+    public y: number;
+    public _emoji: string;
+
+    get emoji() {
+        return this._emoji;
+      }
+  
+    constructor(x: number, y: number, emoji: string) {
+      this.x = x;
+      this.y = y;
+      this._emoji = emoji;
+    }
+  
+    // Update the position of the sticker (for preview when moving)
+    move(x: number, y: number) {
+      this.x = x;
+      this.y = y;
+    }
+
+    // Draw the sticker on the canvas
+    draw(ctx: CanvasRenderingContext2D) {
+      ctx.font = "48px serif"; // Adjust font size as needed
+      ctx.fillText(this._emoji, this.x, this.y);
+    }
+}
+  
+
+const paths: (MarkerLine | Sticker)[] = [];  // Now it can hold both MarkerLine and Sticker objects
+const redoStack: (MarkerLine | Sticker)[] = []; // Allow both types
+
+let currentLine: MarkerLine | null = null;
+let toolPreview: ToolPreview | null = null; // Tool preview object
+let currentSticker: Sticker | null = null; //Sticker Objects
+
+
+function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+    for (const path of paths) {
+      if (path instanceof MarkerLine) {
+        // If the object is a MarkerLine, call display()
+        path.display(ctx);
+      } else if (path instanceof Sticker) {
+        // If the object is a Sticker, call draw()
+        path.draw(ctx);
+      }
+    }
+  
+    if (!cursor.active && toolPreview) {
+      toolPreview.draw(ctx); // Draw tool preview
+    }
+  
+    // Draw the sticker preview if a sticker is selected
+    if (!cursor.active && currentSticker) {
+        currentSticker.draw(ctx);
+      }
+  }
+  
 function dispatchDrawingChanged() {
   const event = new Event("drawing-changed");
   canvas.dispatchEvent(event);
@@ -141,8 +196,6 @@ thickBtn.addEventListener("click", () => {
     dispatchDrawingChanged();
 });
 
-  
-
 undoBtn.addEventListener("click", () => {
     if (paths.length > 0) {
         const lastPath = paths.pop();
@@ -162,38 +215,68 @@ redoBtn.addEventListener("click", () => {
         }
       }
 });
-  
 
-canvas.addEventListener("mousedown", (e: MouseEvent) => {
+// Event listeners for sticker buttons
+rocketBtn.addEventListener("click", () => {
+    currentSticker = new Sticker(cursor.x, cursor.y, "🚀");
+    dispatchDrawingChanged();
+  });
+  
+  sunglassesBtn.addEventListener("click", () => {
+    currentSticker = new Sticker(cursor.x, cursor.y, "😎");
+    dispatchDrawingChanged();
+  });
+  
+  unicornBtn.addEventListener("click", () => {
+    currentSticker = new Sticker(cursor.x, cursor.y, "🦄");
+    dispatchDrawingChanged();
+  });
+    
+
+  canvas.addEventListener("mousedown", (e: MouseEvent) => {
     cursor.active = true;
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
   
-    currentLine = new MarkerLine(cursor.x, cursor.y, currentThickness);
-    paths.push(currentLine);
-    redoStack.length = 0; 
-    toolPreview = null;
-    dispatchDrawingChanged(); 
-});
+    if (currentSticker) {
+      // Place the sticker
+      currentSticker = new Sticker(cursor.x, cursor.y, currentSticker.emoji); // Finalize sticker position
+      paths.push(currentSticker); // Store the sticker in the paths array
+      currentSticker = null; // Reset the current sticker
+    } else {
+      // Handle drawing
+      currentLine = new MarkerLine(cursor.x, cursor.y, currentThickness);
+      paths.push(currentLine);
+      redoStack.length = 0; // Clear redo stack on new drawing action
+    }
+  
+    dispatchDrawingChanged();
+  });
+  
 
 canvas.addEventListener("mousemove", (e: MouseEvent) => {
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
   
     if (!cursor.active) {
-      // Show the tool preview when the mouse is moving but not drawing
-      if (!toolPreview) {
-        toolPreview = new ToolPreview(cursor.x, cursor.y, currentThickness);
+      // If a sticker is selected, move it with the mouse
+      if (currentSticker) {
+        currentSticker.move(cursor.x, cursor.y);
       } else {
-        toolPreview.move(cursor.x, cursor.y);
+        // Handle other previews (e.g., tool preview)
+        if (!toolPreview) {
+          toolPreview = new ToolPreview(cursor.x, cursor.y, currentThickness);
+        } else {
+          toolPreview.move(cursor.x, cursor.y);
+        }
       }
     } else if (currentLine) {
-      // Add points to the current line when drawing
-      currentLine.drag(cursor.x, cursor.y);
+      currentLine.drag(cursor.x, cursor.y); // Add points to the current line when drawing
     }
   
-    dispatchDrawingChanged(); // Trigger a redraw after each move
+    dispatchDrawingChanged(); // Redraw the canvas
   });
+  
   
 
 canvas.addEventListener("mouseup", () => {
@@ -205,3 +288,4 @@ canvas.addEventListener("mouseleave", () => {
   cursor.active = false;
   currentLine = null;
 });
+
