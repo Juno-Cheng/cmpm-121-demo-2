@@ -130,7 +130,14 @@ class Sticker {
 let stickers = [
   { emoji: "🚀", name: "Rocket" },
   { emoji: "😎", name: "Sunglasses" },
-  { emoji: "🦄", name: "Unicorn" }
+  { emoji: "🦄", name: "Unicorn" },
+  { emoji: "🍕", name: "Pizza" },
+  { emoji: "🐱", name: "Cat" },
+  { emoji: "🌈", name: "Rainbow" },
+  { emoji: "🎨", name: "Palette" },
+  { emoji: "🐶", name: "Dog" },
+  { emoji: "🔥", name: "Fire" },
+  { emoji: "🌟", name: "Star" }
 ];
 
 function createStickerButtons() {
@@ -151,12 +158,15 @@ function createStickerButtons() {
   customBtn.textContent = 'Custom';
   customBtn.addEventListener('click', () => {
     const customEmoji = prompt("Enter a custom sticker emoji", "🍕");
-    if (customEmoji) {
-      stickers.push({ emoji: customEmoji, name: "Custom" });
-      createStickerButtons(); 
+    const customName = prompt("Enter a custom sticker name", "Pizza");
+  
+    if (customEmoji && customName) {
+      stickers.push({ emoji: customEmoji, name: customName });      
+      createStickerButtons();
     }
   });
   stickerButtonsDiv.appendChild(customBtn);
+  
 }
 
 createStickerButtons(); 
@@ -286,7 +296,7 @@ exportBtn.addEventListener('click', () => {
   exportCanvas.height = 1024;
   const exportCtx = exportCanvas.getContext('2d')!;
   exportCtx.scale(4, 4); 
-  
+
   // Step 2: Redraw everything from the original canvas on the new high-res canvas
   paths.forEach(path => {
     if (path instanceof MarkerLine) {
