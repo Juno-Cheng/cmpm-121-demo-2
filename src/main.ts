@@ -18,6 +18,11 @@ app.innerHTML = `
 
   <!-- Second row for sticker buttons --> 
   <div id="stickerButtons"></div> <!-- Sticker buttons will be created dynamically -->
+
+  <!-- Third row for export button -->
+  <div id="exportButtonRow">
+    <button id="exportBtn">Export</button>
+  </div>
 `;
 
 const canvas = document.querySelector<HTMLCanvasElement>("#canvas")!;
@@ -28,6 +33,7 @@ const redoBtn = document.querySelector<HTMLButtonElement>("#redoBtn")!;
 const thinBtn = document.querySelector<HTMLButtonElement>("#thinBtn")!;
 const thickBtn = document.querySelector<HTMLButtonElement>("#thickBtn")!;
 const cursor = { active: false, x: 0, y: 0 };
+const exportBtn = document.querySelector<HTMLButtonElement>("#exportBtn")!;
 
 // Marker styles
 let currentThickness = 2; 
@@ -110,30 +116,26 @@ class Sticker {
     this._emoji = emoji;
   }
 
-  // Update the position of the sticker (for preview when moving)
   move(x: number, y: number) {
     this.x = x;
     this.y = y;
   }
 
-  // Draw the sticker on the canvas
   draw(ctx: CanvasRenderingContext2D) {
-    ctx.font = "48px serif"; // Adjust font size as needed
+    ctx.font = "48px serif"; 
     ctx.fillText(this._emoji, this.x, this.y);
   }
 }
 
-// Array to hold stickers
 let stickers = [
   { emoji: "🚀", name: "Rocket" },
   { emoji: "😎", name: "Sunglasses" },
   { emoji: "🦄", name: "Unicorn" }
 ];
 
-// Function to create sticker buttons dynamically
 function createStickerButtons() {
   const stickerButtonsDiv = document.getElementById("stickerButtons")!;
-  stickerButtonsDiv.innerHTML = ''; // Clear previous buttons
+  stickerButtonsDiv.innerHTML = ''; 
 
   stickers.forEach(sticker => {
     const button = document.createElement('button');
@@ -145,22 +147,21 @@ function createStickerButtons() {
     stickerButtonsDiv.appendChild(button);
   });
 
-  // Add the custom sticker button
   const customBtn = document.createElement('button');
   customBtn.textContent = 'Custom';
   customBtn.addEventListener('click', () => {
     const customEmoji = prompt("Enter a custom sticker emoji", "🍕");
     if (customEmoji) {
       stickers.push({ emoji: customEmoji, name: "Custom" });
-      createStickerButtons(); // Regenerate buttons with the new custom sticker
+      createStickerButtons(); 
     }
   });
   stickerButtonsDiv.appendChild(customBtn);
 }
 
-createStickerButtons(); // Initial call to generate sticker buttons
+createStickerButtons(); 
 
-const paths: (MarkerLine | Sticker)[] = [];  // Hold both MarkerLine and Sticker objects
+const paths: (MarkerLine | Sticker)[] = [];  
 const redoStack: (MarkerLine | Sticker)[] = [];
 
 let currentLine: MarkerLine | null = null;
@@ -179,11 +180,11 @@ function redraw() {
   });
 
   if (!cursor.active && toolPreview) {
-    toolPreview.draw(ctx); // Draw tool preview
+    toolPreview.draw(ctx); 
   }
 
   if (!cursor.active && currentSticker) {
-    currentSticker.draw(ctx); // Draw the sticker preview
+    currentSticker.draw(ctx); 
   }
 }
 
@@ -276,4 +277,28 @@ canvas.addEventListener("mouseup", () => {
 canvas.addEventListener("mouseleave", () => {
   cursor.active = false;
   currentLine = null;
+});
+
+exportBtn.addEventListener('click', () => {
+  // Step 1: Create a new canvas of size 1024x1024 & Scale
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = 1024;
+  exportCanvas.height = 1024;
+  const exportCtx = exportCanvas.getContext('2d')!;
+  exportCtx.scale(4, 4); 
+  
+  // Step 2: Redraw everything from the original canvas on the new high-res canvas
+  paths.forEach(path => {
+    if (path instanceof MarkerLine) {
+      path.display(exportCtx); 
+    } else if (path instanceof Sticker) {
+      path.draw(exportCtx); 
+    }
+  });
+
+  // Step 3: Convert the canvas to a PNG and trigger the download
+  const anchor = document.createElement('a');
+  anchor.href = exportCanvas.toDataURL('image/png'); // Convert the canvas to a PNG data URL
+  anchor.download = 'sketchpad.png'; 
+  anchor.click(); 
 });
