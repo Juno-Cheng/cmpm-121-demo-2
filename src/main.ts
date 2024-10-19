@@ -23,6 +23,12 @@ app.innerHTML = `
   <div id="exportButtonRow">
     <button id="exportBtn">Export</button>
   </div>
+
+  <!-- Fourth row for tool property slider -->
+  <div id="sliderRow">
+    <label for="rotationSlider">Tool Property (Rotation):</label>
+    <input type="range" id="rotationSlider" min="0" max="360" value="0">
+  </div>
 `;
 
 const canvas = document.querySelector<HTMLCanvasElement>("#canvas")!;
@@ -32,17 +38,31 @@ const undoBtn = document.querySelector<HTMLButtonElement>("#undoBtn")!;
 const redoBtn = document.querySelector<HTMLButtonElement>("#redoBtn")!;
 const thinBtn = document.querySelector<HTMLButtonElement>("#thinBtn")!;
 const thickBtn = document.querySelector<HTMLButtonElement>("#thickBtn")!;
-const cursor = { active: false, x: 0, y: 0 };
 const exportBtn = document.querySelector<HTMLButtonElement>("#exportBtn")!;
+const rotationSlider = document.querySelector<HTMLInputElement>("#rotationSlider")!;
+
+const cursor = { active: false, x: 0, y: 0 };
 
 // Marker styles
 let currentThickness = 2; 
+let currentRotation = 0;
 thinBtn.classList.add("selectedTool"); // Default selected tool
 
 function setSelectedTool(toolBtn: HTMLButtonElement) {
   thinBtn.classList.remove("selectedTool");
   thickBtn.classList.remove("selectedTool");
   toolBtn.classList.add("selectedTool");
+}
+
+// ==== Utility Functions ====
+
+function getRandomColor(): string {
+  const letters = "0123456789ABCDEF";
+  let color = "#";
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
 }
 
 // ==== Classes ====
@@ -58,18 +78,16 @@ class ToolPreview {
     this.thickness = thickness;
   }
 
-  // Update the position of the preview
   move(x: number, y: number) {
     this.x = x;
     this.y = y;
   }
 
-  // Draw the preview on the canvas
   draw(ctx: CanvasRenderingContext2D) {
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2); // Draw a circle
-    ctx.strokeStyle = "gray"; // Set preview color
-    ctx.lineWidth = 1; // Preview border width
+    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = "gray";
+    ctx.lineWidth = 1;
     ctx.stroke();
   }
 }
@@ -77,10 +95,12 @@ class ToolPreview {
 class MarkerLine {
   private points: { x: number; y: number }[] = [];
   private thickness: number;
+  private color: string;
 
-  constructor(initialX: number, initialY: number, thickness: number) {
+  constructor(initialX: number, initialY: number, thickness: number, color: string) {
     this.points.push({ x: initialX, y: initialY });
     this.thickness = thickness;
+    this.color = color; // Set color for this line
   }
 
   drag(x: number, y: number) {
@@ -89,7 +109,8 @@ class MarkerLine {
 
   display(ctx: CanvasRenderingContext2D) {
     if (this.points.length > 0) {
-      ctx.lineWidth = this.thickness; // Set line thickness
+      ctx.lineWidth = this.thickness;
+      ctx.strokeStyle = this.color; // Set stroke color
       ctx.beginPath();
       ctx.moveTo(this.points[0].x, this.points[0].y);
 
@@ -105,15 +126,13 @@ class Sticker {
   public x: number;
   public y: number;
   public _emoji: string;
+  public rotation: number; // New property for rotation
 
-  get emoji() {
-    return this._emoji;
-  }
-
-  constructor(x: number, y: number, emoji: string) {
+  constructor(x: number, y: number, emoji: string, rotation: number = 0) {
     this.x = x;
     this.y = y;
     this._emoji = emoji;
+    this.rotation = rotation; // Set rotation
   }
 
   move(x: number, y: number) {
@@ -122,10 +141,15 @@ class Sticker {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    ctx.font = "48px serif"; 
-    ctx.fillText(this._emoji, this.x, this.y);
+    ctx.save(); // Save the current context state
+    ctx.translate(this.x, this.y); // Move to sticker position
+    ctx.rotate((this.rotation * Math.PI) / 180); // Rotate the context
+    ctx.font = "48px serif";
+    ctx.fillText(this._emoji, 0, 0); // Draw emoji at rotated angle
+    ctx.restore(); // Restore the context state
   }
 }
+
 
 let stickers = [
   { emoji: "🚀", name: "Rocket" },
@@ -142,7 +166,7 @@ let stickers = [
 
 function createStickerButtons() {
   const stickerButtonsDiv = document.getElementById("stickerButtons")!;
-  stickerButtonsDiv.innerHTML = ''; 
+  stickerButtonsDiv.innerHTML = '';
 
   stickers.forEach(sticker => {
     const button = document.createElement('button');
@@ -159,21 +183,19 @@ function createStickerButtons() {
   customBtn.addEventListener('click', () => {
     const customEmoji = prompt("Enter a custom sticker emoji", "🍕");
     const customName = prompt("Enter a custom sticker name", "Pizza");
-  
+
     if (customEmoji && customName) {
-      stickers.push({ emoji: customEmoji, name: customName });      
+      stickers.push({ emoji: customEmoji, name: customName });
       createStickerButtons();
     }
   });
   stickerButtonsDiv.appendChild(customBtn);
-  
 }
 
-createStickerButtons(); 
+createStickerButtons();
 
-const paths: (MarkerLine | Sticker)[] = [];  
+const paths: (MarkerLine | Sticker)[] = [];
 const redoStack: (MarkerLine | Sticker)[] = [];
-
 let currentLine: MarkerLine | null = null;
 let toolPreview: ToolPreview | null = null;
 let currentSticker: Sticker | null = null;
@@ -190,11 +212,11 @@ function redraw() {
   });
 
   if (!cursor.active && toolPreview) {
-    toolPreview.draw(ctx); 
+    toolPreview.draw(ctx);
   }
 
   if (!cursor.active && currentSticker) {
-    currentSticker.draw(ctx); 
+    currentSticker.draw(ctx);
   }
 }
 
@@ -252,11 +274,11 @@ canvas.addEventListener("mousedown", (e: MouseEvent) => {
   cursor.y = e.offsetY;
 
   if (currentSticker) {
-    currentSticker = new Sticker(cursor.x, cursor.y, currentSticker.emoji);
-    paths.push(currentSticker);
-    currentSticker = null;
+    currentSticker = new Sticker(cursor.x, cursor.y, currentSticker._emoji, currentRotation);
+    paths.push(currentSticker); 
+    currentSticker = null; 
   } else {
-    currentLine = new MarkerLine(cursor.x, cursor.y, currentThickness);
+    currentLine = new MarkerLine(cursor.x, cursor.y, currentThickness, getRandomColor());
     paths.push(currentLine);
     redoStack.length = 0;
   }
@@ -289,26 +311,35 @@ canvas.addEventListener("mouseleave", () => {
   currentLine = null;
 });
 
+// Export Button Logic
 exportBtn.addEventListener('click', () => {
-  // Step 1: Create a new canvas of size 1024x1024 & Scale
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = 1024;
   exportCanvas.height = 1024;
   const exportCtx = exportCanvas.getContext('2d')!;
-  exportCtx.scale(4, 4); 
+  exportCtx.scale(4, 4);
 
-  // Step 2: Redraw everything from the original canvas on the new high-res canvas
   paths.forEach(path => {
     if (path instanceof MarkerLine) {
-      path.display(exportCtx); 
+      path.display(exportCtx);
     } else if (path instanceof Sticker) {
-      path.draw(exportCtx); 
+      path.draw(exportCtx);
     }
   });
 
-  // Step 3: Convert the canvas to a PNG and trigger the download
   const anchor = document.createElement('a');
-  anchor.href = exportCanvas.toDataURL('image/png'); // Convert the canvas to a PNG data URL
-  anchor.download = 'sketchpad.png'; 
-  anchor.click(); 
+  anchor.href = exportCanvas.toDataURL('image/png');
+  anchor.download = 'sketchpad.png';
+  anchor.click();
+});
+
+// Rotation Slide Logic
+rotationSlider.addEventListener("input", () => {
+  currentRotation = parseInt(rotationSlider.value);
+  
+  // Update the tool preview if a sticker is selected
+  if (currentSticker) {
+    currentSticker.rotation = currentRotation;
+    dispatchDrawingChanged(); // Redraw the preview
+  }
 });
