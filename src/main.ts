@@ -71,11 +71,13 @@ class ToolPreview {
   private x: number;
   private y: number;
   private thickness: number;
+  private rotation: number; 
 
-  constructor(x: number, y: number, thickness: number) {
+  constructor(x: number, y: number, thickness: number, rotation: number = 0) {
     this.x = x;
     this.y = y;
     this.thickness = thickness;
+    this.rotation = rotation; 
   }
 
   move(x: number, y: number) {
@@ -83,12 +85,20 @@ class ToolPreview {
     this.y = y;
   }
 
+  setRotation(rotation: number) {
+    this.rotation = rotation; 
+  }
+
   draw(ctx: CanvasRenderingContext2D) {
+    ctx.save(); 
+    ctx.translate(this.x, this.y); 
+    ctx.rotate((this.rotation * Math.PI) / 180); 
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
-    ctx.strokeStyle = "gray";
+    ctx.arc(0, 0, this.thickness / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = "gray"; 
     ctx.lineWidth = 1;
     ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -292,8 +302,10 @@ canvas.addEventListener("mousemove", (e: MouseEvent) => {
 
   if (!cursor.active && currentSticker) {
     currentSticker.move(cursor.x, cursor.y);
+    currentSticker.rotation = currentRotation; // Set rotation
   } else if (!cursor.active && toolPreview) {
     toolPreview.move(cursor.x, cursor.y);
+    toolPreview.setRotation(currentRotation); // Update tool preview rotation
   } else if (cursor.active && currentLine) {
     currentLine.drag(cursor.x, cursor.y);
   }
@@ -337,7 +349,6 @@ exportBtn.addEventListener('click', () => {
 rotationSlider.addEventListener("input", () => {
   currentRotation = parseInt(rotationSlider.value);
   
-  // Update the tool preview if a sticker is selected
   if (currentSticker) {
     currentSticker.rotation = currentRotation;
     dispatchDrawingChanged(); // Redraw the preview
