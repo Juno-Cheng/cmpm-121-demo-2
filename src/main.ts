@@ -250,6 +250,7 @@ thinBtn.addEventListener("click", () => {
   currentThickness = 2;
   setSelectedTool(thinBtn);
   toolPreview = new ToolPreview(cursor.x, cursor.y, currentThickness);
+  currentSticker = null; // Reset currentSticker
   dispatchDrawingChanged();
 });
 
@@ -257,6 +258,7 @@ thickBtn.addEventListener("click", () => {
   currentThickness = 8;
   setSelectedTool(thickBtn);
   toolPreview = new ToolPreview(cursor.x, cursor.y, currentThickness);
+  currentSticker = null; // Reset currentSticker
   dispatchDrawingChanged();
 });
 
@@ -284,9 +286,8 @@ canvas.addEventListener("mousedown", (e: MouseEvent) => {
   cursor.y = e.offsetY;
 
   if (currentSticker) {
-    currentSticker = new Sticker(cursor.x, cursor.y, currentSticker._emoji, currentRotation);
-    paths.push(currentSticker); 
-    currentSticker = null; 
+    const newSticker = new Sticker(cursor.x, cursor.y, currentSticker._emoji, currentRotation);
+    paths.push(newSticker); 
   } else {
     currentLine = new MarkerLine(cursor.x, cursor.y, currentThickness, getRandomColor());
     paths.push(currentLine);
